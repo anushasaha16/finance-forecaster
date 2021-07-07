@@ -137,6 +137,33 @@ app.get("/", authCheck, (req, res) => {
     });
 });
 
+app.post("/submit", (req, res) => {
+  const date = req.body.purchaseDate;
+  const amt = req.body.amount;
+
+  const month = date.getMonth() + 1;
+  const year = date.getFullYear();
+
+  let dateString = month + "/" + year;
+
+  User.findById(req.user.id, function(err, foundUser) {
+    if(err) {
+        console.log(err);
+    } else {
+        let data = foundUser.data;
+        if (dateString in data) {
+          data[dateString]  = data[dateString] + amt;
+        } else {
+          data[dateString] = amt;  
+        }
+        foundUser.data = data;
+        foundUser.save(function() {
+            res.redirect("/");
+        })
+    }
+})
+})
+
 app.listen(4000, function(){
   console.log("Server started on port 4000.");
 });

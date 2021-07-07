@@ -3,7 +3,7 @@ import {CanvasJSChart} from 'canvasjs-react-charts'
 
 class Graph extends Component {
 	render() {
-		var data = this.props.data
+		const data = this.props.data
 		
 		const options = {
 			animationEnabled: true,

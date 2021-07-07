@@ -2,12 +2,14 @@ import flask
 from flask import request, jsonify
 import numpy as np
 import tensorflow as tf
-from tensorflow import keras
+import keras
+from keras.models import load_model
 
-model = keras.models.load_model('../model/model.h5')
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
+CONV_WIDTH = 3
+model = load_model('model\model.h5')
 
 @app.route('/api/v1/forecast/', methods=['GET'])
 def api_data():
