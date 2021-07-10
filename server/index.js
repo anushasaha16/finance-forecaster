@@ -35,6 +35,7 @@ mongoose.connect("mongodb://localhost:27017/ffUserDB", {useNewUrlParser: true});
 mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
+  name: String,
   email: String,
   password: String,
   googleId: String,
@@ -63,13 +64,32 @@ passport.use(new GoogleStrategy({
     callbackURL: "http://localhost:4000/auth/google/financeforecaster",
     userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
   },
-  function(accessToken, refreshToken, profile, cb) {
-    console.log(profile);  
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
-      return cb(err, user);
+  function(accessToken, refreshToken, profile, done) {
+    //check user table for anyone with a facebook ID of profile.id
+    User.findOne({
+      googleId: profile.id 
+    }, function(err, user) {
+        if (err) {
+            return done(err);
+        }
+        //If no user was found, create a new user with values from Google profile
+        if (!user) {
+            user = new User({
+                name: profile.displayName,
+                email: profile.emails[0].value,
+                googleId: profile.id,
+                data: {'1/2021': 0}
+            });
+            user.save(function(err) {
+                if (err) 
+                  console.log(err);
+                return done(err, user);
+            });
+        } else {
+            return done(err, user);
+        }
     });
-  }
-));
+}))
 
 app.get("/auth/login/success", (req, res) => {
   if (req.user) {
@@ -138,8 +158,12 @@ app.get("/", authCheck, (req, res) => {
 });
 
 app.post("/submit", (req, res) => {
-  const date = req.body.purchaseDate;
+  console.log(req)
+  const date = new Date(req.body.purchaseDate)
+  console.log(date);
+  console.log(typeof(date))
   const amt = req.body.amount;
+  console.log(amt)
 
   const month = date.getMonth() + 1;
   const year = date.getFullYear();
@@ -150,18 +174,30 @@ app.post("/submit", (req, res) => {
     if(err) {
         console.log(err);
     } else {
-        let data = foundUser.data;
-        if (dateString in data) {
-          data[dateString]  = data[dateString] + amt;
+        let modifiedData = foundUser.data;
+        console.log(modifiedData)
+        if (dateString in modifiedData) {
+          modifiedData[dateString]  = parseFloat(modifiedData[dateString]) + parseFloat(amt);
+          console.log(modifiedData[dateString])
         } else {
-          data[dateString] = amt;  
+          modifiedData[dateString] = parseFloat(amt);  
+          console.log(modifiedData)
+          console.log(modifiedData[dateString])
         }
-        foundUser.data = data;
-        foundUser.save(function() {
-            res.redirect("/");
-        })
+        foundUser.data = modifiedData;
+        console.log(foundUser);
+        foundUser.markModified('data');
+        foundUser.save(function(err) {
+          if(!err) {
+              console.log(foundUser);
+          }
+          else {
+              console.log("Error: could not save user " + foundUser.data);
+          }
+          res.redirect(CLIENT_HOME_PAGE_URL)
+      });
     }
-})
+  })
 })
 
 app.listen(4000, function(){
