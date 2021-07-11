@@ -4,17 +4,19 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const session = require('express-session');
 const passport = require("passport");
-const passportLocalMongoose = require("passport-local-mongoose")
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const findOrCreate = require("mongoose-findorcreate");
+const passportSetup = require("./config/passport-setup");
+const authRoutes = require("./routes/auth-routes");
 const cors = require("cors");
 const CLIENT_HOME_PAGE_URL = "http://localhost:3000";
 const app = express();
 
+mongoose.connect("mongodb://localhost:27017/ffUserDB", {useNewUrlParser: true});
+mongoose.set("useCreateIndex", true);
+
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(session({
-    secret: "Our little secret.",
+    secret: "secret",
     resave: false,
     saveUninitialized: false
 }))
@@ -25,129 +27,27 @@ app.use(passport.session());
 // set up cors to allow us to accept requests from our client
 app.use(
   cors({
-    origin: "http://localhost:3000", // allow to server to accept request from different origin
+    origin: "http://localhost:3000", //allow to server to accept request from different origin
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true // allow session cookie from browser to pass through
   })
 );
 
-mongoose.connect("mongodb://localhost:27017/ffUserDB", {useNewUrlParser: true});
-mongoose.set("useCreateIndex", true);
-
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
-  googleId: String,
-  data: Object
-})
-
-userSchema.plugin(passportLocalMongoose);
-userSchema.plugin(findOrCreate)
-
-const User = new mongoose.model("User", userSchema);
-
-passport.use(User.createStrategy());
-passport.serializeUser(function(user, done) {
-  done(null, user.id);
-});
-  
-passport.deserializeUser(function(id, done) {
-  User.findById(id, function(err, user) {
-    done(err, user);
-  });
-});
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "http://localhost:4000/auth/google/financeforecaster",
-    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
-  },
-  function(accessToken, refreshToken, profile, done) {
-    //check user table for anyone with a facebook ID of profile.id
-    User.findOne({
-      googleId: profile.id 
-    }, function(err, user) {
-        if (err) {
-            return done(err);
-        }
-        //If no user was found, create a new user with values from Google profile
-        if (!user) {
-            user = new User({
-                name: profile.displayName,
-                email: profile.emails[0].value,
-                googleId: profile.id,
-                data: {'1/2021': 0}
-            });
-            user.save(function(err) {
-                if (err) 
-                  console.log(err);
-                return done(err, user);
-            });
-        } else {
-            return done(err, user);
-        }
-    });
-}))
-
-app.get("/auth/login/success", (req, res) => {
-  if (req.user) {
-    res.json({
-      success: true,
-      message: "user has successfully authenticated",
-      user: req.user,
-      cookies: req.cookies
-    });
-  }
-});
-
-app.get("/auth/login/failed", (req, res) => {
-  res.status(401).json({
-    success: false,
-    message: "user failed to authenticate."
-  });
-});
-
-app.get('/auth/google', 
-  passport.authenticate('google', {
-    scope: ['profile', 'email']
-  })
-);
-
-app.get('/auth/google/financeforecaster', 
-  passport.authenticate('google', { failureRedirect: CLIENT_HOME_PAGE_URL }),
-  function(req, res) {
-    res.redirect(CLIENT_HOME_PAGE_URL);
-});
-
-app.get("/auth/logout", function(req, res) {
-    req.logout();
-    res.redirect(CLIENT_HOME_PAGE_URL)
-})
-
-app.get(
-    "/auth/google/redirect",
-    passport.authenticate("google", {
-    successRedirect: CLIENT_HOME_PAGE_URL,
-    failureRedirect: "/auth/login/failed"
-  })
-);
+app.use("/auth", authRoutes);
 
 const authCheck = (req, res, next) => {
-    if (!req.user) {
-      res.status(401).json({
-        authenticated: false,
-        message: "user has not been authenticated"
-      });
-    } else {
-      next();
-    }
+  if (!req.user) {
+    res.status(401).json({
+      authenticated: false,
+      message: "user has not been authenticated"
+    });
+  } else {
+    next();
+  }
 };
   
-// if it's already login, send the profile response,
-// otherwise, send a 401 response that the user is not authenticated
-// authCheck before navigating to home page
+// if the user is logged in, send the profile data
+// else, send a 401 response that the user is not authenticated
 app.get("/", authCheck, (req, res) => {
     res.status(200).json({
       authenticated: true,
