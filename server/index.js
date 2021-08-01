@@ -4,11 +4,66 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const session = require('express-session');
 const passport = require("passport");
-const passportSetup = require("./config/passport-setup");
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const User = require("./models/user-model");
 const authRoutes = require("./routes/auth-routes");
 const cors = require("cors");
+const { response } = require('express');
 const CLIENT_HOME_PAGE_URL = "http://localhost:3000";
 const app = express();
+
+passport.use(User.createStrategy());
+
+//serialize user.id so browser will remember the user when they login
+passport.serializeUser(function(user, done) {
+    done(null, user.id);
+});
+
+passport.deserializeUser(function(id, done) {
+    User.findById(id, function(err, user) {
+        done(err, user);
+    });
+});
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:4000/auth/google/financeforecaster",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, done) {
+    //check user table for anyone with a facebook ID of profile.id
+    User.findOne({
+      googleId: profile.id 
+    }, function(err, user) {
+        if (err) {
+            return done(err);
+        }
+        //If no user was found, create a new user with values from Google profile
+        if (!user) {
+            user = new User({
+                name: profile.displayName,
+                email: profile.emails[0].value,
+                googleId: profile.id,
+                data: {
+                  'housing': {'1/2021': 0},
+                  'transportation': {'1/2021': 0},
+                  'food': {'1/2021': 0},
+                  'utilities': {'1/2021': 0},
+                  'personalSpending': {'1/2021': 0},
+                  'recreation': {'1/2021': 0}
+              }
+            });
+            user.save(function(err) {
+                if (err) 
+                  console.log(err);
+                return done(err, user);
+            });
+        } else {
+            return done(err, user);
+        }
+    });
+}))
 
 mongoose.connect("mongodb://localhost:27017/ffUserDB", {useNewUrlParser: true});
 mongoose.set("useCreateIndex", true);
@@ -58,13 +113,10 @@ app.get("/", authCheck, (req, res) => {
 });
 
 app.post("/submit", (req, res) => {
-  console.log(req)
+  console.log(req.user)
   const date = new Date(req.body.purchaseDate)
-  console.log(date);
-  console.log(typeof(date))
   const amt = req.body.amount;
-  console.log(amt)
-
+  const category = req.body.categories
   const month = date.getMonth() + 1;
   const year = date.getFullYear();
 
@@ -74,18 +126,16 @@ app.post("/submit", (req, res) => {
     if(err) {
         console.log(err);
     } else {
-        let modifiedData = foundUser.data;
-        console.log(modifiedData)
+        let modifiedData = foundUser.data[category];
+        console.log(foundUser.data)
         if (dateString in modifiedData) {
           modifiedData[dateString]  = parseFloat(modifiedData[dateString]) + parseFloat(amt);
-          console.log(modifiedData[dateString])
         } else {
           modifiedData[dateString] = parseFloat(amt);  
-          console.log(modifiedData)
-          console.log(modifiedData[dateString])
         }
-        foundUser.data = modifiedData;
-        console.log(foundUser);
+        data = foundUser.data 
+        data[category] = modifiedData;
+        foundUser.data = data
         foundUser.markModified('data');
         foundUser.save(function(err) {
           if(!err) {

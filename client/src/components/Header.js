@@ -1,6 +1,7 @@
 import {Link} from 'react-router-dom';
 import PropTypes from "prop-types"
 import React, {Component} from 'react';
+import '../App.css';
 
 class Header extends Component {
     static propTypes = {
@@ -10,16 +11,14 @@ class Header extends Component {
     render() {
         const { authenticated } = this.props;
         return (
-          <ul className="menu">
-            <li>
-              <Link to="/">Home</Link>
-            </li>
+          <div className='App-header'>
+            <Link to="/">Home</Link>
             {authenticated ? (
-              <li onClick={this._logout}>Logout</li>
+              <a href="http://localhost:4000/auth/logout">Logout</a>
             ) : (
-              <li onClick={this._signIn}>Login</li>
+              <a href="http://localhost:4000/auth/google/">Login</a>
             )}
-          </ul>
+          </div>
         );
     }
 

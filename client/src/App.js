@@ -4,7 +4,7 @@ import { AppRouter } from './AppRouter';
 
 class App extends Component {
   render() {
-    return <AppRouter/>;
+    return <div className='App'><AppRouter/></div>;
   }
 }
 

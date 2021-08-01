@@ -49,23 +49,31 @@ class Home extends Component {
     render() {
         const {authenticated} = this.state;
         return (
-            <div>
+            <div className='App'>
                 <Header
                     authenticated={authenticated}
                     handleNotAuthenticated={this._handleNotAuthenticated}
                 />   
                 <div>
                     {!authenticated ? (
-                        <div>
+                        <div className='App-home'>
                             <h1>Finance Forecaster</h1> 
+                            <h4>
+                                Make budget planning a more efficient process by tracking your finances and getting
+                                predictions for future spending habits!
+                            </h4>
                             <img 
                                 className="App-logo"
-                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQK5SKtd68HG1K0K3SNNIkZo_bZLbynvMEamg&usqp=CAU">
+                                src='logo.png'>
                             </img>
                         </div>    
                     ) : (
-                        <div>
+                        <div className='App-predictor'>
                             <h2>Welcome!</h2>
+                            <h4>
+                                Enter a past expense, the spending category for that expense, and the purchase data below
+                                for a forecast of future expenses!
+                            </h4>
                             <Predictor user={this.state.user}/>
                         </div>    
                     )}
