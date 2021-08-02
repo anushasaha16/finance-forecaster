@@ -11,7 +11,7 @@ app = flask.Flask(__name__)
 CORS(app)
 app.config["DEBUG"] = True
 
-model = load_model('model\model.h5')
+model = load_model('../model/model.h5')
 
 @app.route('/api/v1/forecast/', methods=['GET'])
 def api_data():
