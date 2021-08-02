@@ -183,7 +183,7 @@ $RECYCLE.BIN/
 *.lnk
 
 # README images
-./log-in.png 
-./sign-in.png
+log-in.png 
+sign-in.png
 
 # End of https://www.gitignore.io/api/vim,code,linux,macos,windows,sublimetext,node
